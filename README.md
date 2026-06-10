@@ -188,7 +188,8 @@ startup ordering is handled automatically.
 |---------|-----|
 | Frontend (Angular) | http://localhost:4200 |
 | API + Swagger UI | http://localhost:5000/swagger (or `:${API_PORT}`) |
-| Health checks | http://localhost:5000/health (or `:${API_PORT}`) |
+| Health dashboard (HTML) | http://localhost:5000/health-ui (or `:${API_PORT}`) |
+| Health checks (JSON) | http://localhost:5000/health (or `:${API_PORT}`) |
 | MinIO Console | http://localhost:9001 (minioadmin / minioadmin) |
 
 ### Running locally without Docker
@@ -251,11 +252,15 @@ Errors are returned as **RFC 7807 ProblemDetails**:
 ## Health Check
 
 ```
-GET /health
+GET /health        # JSON: overall status + each dependency
+GET /health-ui     # HTML dashboard (auto-refreshes every 5s)
 ```
 
 Aggregates the health of **SQL Server**, **Redis**, and **MinIO** (the MinIO check lists
-buckets). Returns `Healthy` only when all dependencies are reachable.
+buckets). `/health` returns `200` with detailed JSON when healthy and `503` when any
+dependency is down. `/health-ui` is a self-contained HTML page (served from the API's
+`wwwroot`) that renders each component's status, duration and any error, and refreshes
+automatically.
 
 ---
 

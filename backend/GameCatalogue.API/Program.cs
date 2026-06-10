@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using GameCatalogue.API;
 using GameCatalogue.API.Middleware;
 using GameCatalogue.API.Services;
 using GameCatalogue.Application;
@@ -6,6 +7,7 @@ using GameCatalogue.Application.Interfaces.Storage;
 using GameCatalogue.Infrastructure;
 using GameCatalogue.Infrastructure.Logging;
 using GameCatalogue.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -80,11 +82,21 @@ using (var scope = app.Services.CreateScope())
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseSerilogRequestLogging();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseCors("Angular");
 app.UseSwagger();
 app.UseSwaggerUI();
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+// Machine-readable health (JSON, used by the dashboard page below).
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = HealthResponseWriter.WriteJsonAsync
+});
+
+// Human-friendly health dashboard page.
+app.MapGet("/health-ui", () => Results.Redirect("/health.html"));
 
 app.Run();
 

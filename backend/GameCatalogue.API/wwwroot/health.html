@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Game Catalogue — Health</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --muted: #94a3b8;
+      --text: #e2e8f0;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --gray: #64748b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 48px; }
+    header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    h1 { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 10px; }
+    .overall {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 8px 16px; border-radius: 999px; font-weight: 600; font-size: 15px;
+      background: var(--card);
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--gray); flex: none; }
+    .dot.healthy { background: var(--green); box-shadow: 0 0 0 4px rgba(34,197,94,.18); }
+    .dot.degraded { background: var(--amber); box-shadow: 0 0 0 4px rgba(245,158,11,.18); }
+    .dot.unhealthy { background: var(--red); box-shadow: 0 0 0 4px rgba(239,68,68,.18); }
+    .meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .cards { margin-top: 24px; display: grid; gap: 12px; }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 16px 18px;
+      display: flex; align-items: center; gap: 14px;
+      border: 1px solid rgba(255,255,255,.05);
+    }
+    .card .info { flex: 1; min-width: 0; }
+    .card .name { font-weight: 600; font-size: 16px; }
+    .card .desc { color: var(--muted); font-size: 13px; margin-top: 3px; word-break: break-word; }
+    .card .status { font-size: 13px; font-weight: 600; text-transform: capitalize; }
+    .card .status.healthy { color: var(--green); }
+    .card .status.degraded { color: var(--amber); }
+    .card .status.unhealthy { color: var(--red); }
+    .card .right { text-align: right; flex: none; }
+    .card .dur { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    button {
+      background: #334155; color: var(--text); border: none; border-radius: 8px;
+      padding: 8px 14px; font-size: 14px; cursor: pointer;
+    }
+    button:hover { background: #475569; }
+    .footer { margin-top: 28px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    a { color: #60a5fa; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🎮 Game Catalogue — Health</h1>
+      <span id="overall" class="overall"><span class="dot"></span><span id="overall-text">Loading…</span></span>
+    </header>
+    <div class="meta" id="summary">Checking dependencies…</div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="footer">
+      <span>Auto-refreshes every 5s · <button id="refresh">Refresh now</button></span>
+      <span>Raw: <a href="/health">/health</a> · <a href="/swagger">Swagger</a></span>
+    </div>
+  </div>
+
+  <script>
+    const LABELS = {
+      sqlserver: 'SQL Server',
+      redis: 'Redis',
+      minio: 'MinIO (object storage)'
+    };
+    const ICONS = { sqlserver: '🗄️', redis: '⚡', minio: '🪣' };
+
+    function cls(status) {
+      const s = (status || '').toLowerCase();
+      if (s === 'healthy') return 'healthy';
+      if (s === 'degraded') return 'degraded';
+      return 'unhealthy';
+    }
+
+    function render(report, reachable) {
+      const overall = document.getElementById('overall');
+      const overallText = document.getElementById('overall-text');
+      const summary = document.getElementById('summary');
+      const cards = document.getElementById('cards');
+      const dot = overall.querySelector('.dot');
+
+      const status = reachable ? report.status : 'Unhealthy';
+      dot.className = 'dot ' + cls(status);
+      overallText.textContent = reachable ? status : 'Unreachable';
+
+      if (!reachable) {
+        summary.textContent = 'Could not reach the API.';
+        cards.innerHTML = '';
+        return;
+      }
+
+      summary.textContent = `Overall: ${report.status} · checked in ${report.totalDurationMs} ms`;
+
+      cards.innerHTML = (report.checks || []).map(c => {
+        const label = LABELS[c.name] || c.name;
+        const icon = ICONS[c.name] || '🔌';
+        const desc = c.error || c.description || '';
+        return `
+          <div class="card">
+            <span class="dot ${cls(c.status)}"></span>
+            <div class="info">
+              <div class="name">${icon} ${label}</div>
+              ${desc ? `<div class="desc">${desc}</div>` : ''}
+            </div>
+            <div class="right">
+              <div class="status ${cls(c.status)}">${c.status}</div>
+              <div class="dur">${c.durationMs} ms</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function load() {
+      try {
+        // Status may be 200 (healthy/degraded) or 503 (unhealthy); read the body either way.
+        const res = await fetch('/health', { cache: 'no-store' });
+        const data = await res.json();
+        render(data, true);
+      } catch (e) {
+        render(null, false);
+      }
+    }
+
+    document.getElementById('refresh').addEventListener('click', load);
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>
