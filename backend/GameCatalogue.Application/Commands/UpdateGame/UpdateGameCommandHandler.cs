@@ -7,12 +7,11 @@ namespace GameCatalogue.Application.Commands.UpdateGame;
 
 /// <summary>
 /// Handles <see cref="UpdateGameCommand"/> by loading, updating and persisting a
-/// game and publishing its domain events.
+/// game. Domain events are dispatched by the write context during <c>SaveChanges</c>.
 /// </summary>
 public class UpdateGameCommandHandler : IRequestHandler<UpdateGameCommand>
 {
     private readonly IGameWriteRepository _repository;
-    private readonly IPublisher _publisher;
     private readonly ILogger<UpdateGameCommandHandler> _logger;
 
     /// <summary>
@@ -20,11 +19,9 @@ public class UpdateGameCommandHandler : IRequestHandler<UpdateGameCommand>
     /// </summary>
     public UpdateGameCommandHandler(
         IGameWriteRepository repository,
-        IPublisher publisher,
         ILogger<UpdateGameCommandHandler> logger)
     {
         _repository = repository;
-        _publisher = publisher;
         _logger = logger;
     }
 
@@ -43,15 +40,7 @@ public class UpdateGameCommandHandler : IRequestHandler<UpdateGameCommand>
             request.Rating,
             request.DownloadCount);
 
-        // Capture events before saving (see CreateGameCommandHandler for rationale).
-        var domainEvents = game.DomainEvents.ToList();
-
         await _repository.UpdateAsync(game, cancellationToken);
-
-        foreach (var domainEvent in domainEvents)
-        {
-            await _publisher.Publish(domainEvent, cancellationToken);
-        }
 
         _logger.LogInformation("Updated game {GameId}", game.Id);
     }

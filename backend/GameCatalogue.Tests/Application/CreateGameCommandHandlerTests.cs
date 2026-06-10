@@ -5,7 +5,6 @@ using GameCatalogue.Domain.Entities;
 using GameCatalogue.Domain.Enums;
 using GameCatalogue.Domain.Events;
 using GameCatalogue.Domain.Interfaces;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -15,11 +14,10 @@ public class CreateGameCommandHandlerTests
 {
     private readonly Mock<IGameWriteRepository> _repository = new();
     private readonly Mock<IStorageService> _storage = new();
-    private readonly Mock<IPublisher> _publisher = new();
     private readonly Mock<ILogger<CreateGameCommandHandler>> _logger = new();
 
     private CreateGameCommandHandler CreateHandler() =>
-        new(_repository.Object, _storage.Object, _publisher.Object, _logger.Object);
+        new(_repository.Object, _storage.Object, _logger.Object);
 
     private static CreateGameCommand ValidCommand() => new(
         Title: "Halo Infinite",
@@ -53,16 +51,20 @@ public class CreateGameCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithValidCommand_ShouldPublishGameCreatedEvent()
+    public async Task Handle_WithValidCommand_ShouldRaiseGameCreatedEventOnAggregate()
     {
+        Game? added = null;
+        _repository
+            .Setup(r => r.AddAsync(It.IsAny<Game>(), It.IsAny<CancellationToken>()))
+            .Callback<Game, CancellationToken>((g, _) => added = g);
+
         var handler = CreateHandler();
 
         await handler.Handle(ValidCommand(), CancellationToken.None);
 
-        _publisher.Verify(
-            p => p.Publish(
-                It.Is<IDomainEvent>(e => e is GameCreatedEvent),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
+        // Dispatch is the write context's responsibility (during SaveChanges);
+        // the handler's job is to produce an aggregate carrying the event.
+        added.Should().NotBeNull();
+        added!.DomainEvents.Should().ContainSingle(e => e is GameCreatedEvent);
     }
 }

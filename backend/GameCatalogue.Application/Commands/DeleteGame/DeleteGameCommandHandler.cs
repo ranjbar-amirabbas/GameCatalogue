@@ -7,14 +7,14 @@ using Microsoft.Extensions.Logging;
 namespace GameCatalogue.Application.Commands.DeleteGame;
 
 /// <summary>
-/// Handles <see cref="DeleteGameCommand"/> by loading and deleting the game,
-/// removing its cover image from storage and publishing its domain events.
+/// Handles <see cref="DeleteGameCommand"/> by loading and deleting the game and
+/// removing its cover image from storage. The <c>GameDeletedEvent</c> raised by the
+/// aggregate is dispatched by the write context during <c>SaveChanges</c>.
 /// </summary>
 public class DeleteGameCommandHandler : IRequestHandler<DeleteGameCommand>
 {
     private readonly IGameWriteRepository _repository;
     private readonly IStorageService _storageService;
-    private readonly IPublisher _publisher;
     private readonly ILogger<DeleteGameCommandHandler> _logger;
 
     /// <summary>
@@ -23,12 +23,10 @@ public class DeleteGameCommandHandler : IRequestHandler<DeleteGameCommand>
     public DeleteGameCommandHandler(
         IGameWriteRepository repository,
         IStorageService storageService,
-        IPublisher publisher,
         ILogger<DeleteGameCommandHandler> logger)
     {
         _repository = repository;
         _storageService = storageService;
-        _publisher = publisher;
         _logger = logger;
     }
 
@@ -40,8 +38,6 @@ public class DeleteGameCommandHandler : IRequestHandler<DeleteGameCommand>
 
         game.MarkAsDeleted();
 
-        // Capture events before saving (see CreateGameCommandHandler for rationale).
-        var domainEvents = game.DomainEvents.ToList();
         var coverImageKey = game.CoverImageKey;
 
         await _repository.DeleteAsync(game, cancellationToken);
@@ -57,11 +53,6 @@ public class DeleteGameCommandHandler : IRequestHandler<DeleteGameCommand>
             {
                 _logger.LogWarning(ex, "Failed to delete cover image {Key} for game {GameId}", coverImageKey, request.Id);
             }
-        }
-
-        foreach (var domainEvent in domainEvents)
-        {
-            await _publisher.Publish(domainEvent, cancellationToken);
         }
 
         _logger.LogInformation("Deleted game {GameId}", request.Id);
