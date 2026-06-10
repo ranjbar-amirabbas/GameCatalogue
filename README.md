@@ -62,12 +62,15 @@ has no knowledge of infrastructure concerns.
 4. The repository saves the aggregate. Inside `WriteDbContext.SaveChangesAsync`, pending
    domain events are serialised into the **OutboxMessages** table in the *same
    transaction* as the entity change.
-5. Right after the commit the handler also publishes the captured events **in-process**
+5. `WriteDbContext.SaveChangesAsync` is the single place that handles domain events: it
+   drains them from the tracked aggregates, writes them to the outbox in the same
+   transaction, and — right after the commit — dispatches them **in-process** via MediatR
    for read-your-writes consistency (so a list/detail re-fetch immediately reflects the
-   change). The `OutboxProcessor` background service additionally polls the outbox every
-   10 seconds and re-publishes each event (at-least-once delivery, even if the process
-   crashes between commit and dispatch). Cache-invalidation handlers are idempotent, so
-   the double dispatch is harmless.
+   change). Command handlers therefore never publish events themselves. The
+   `OutboxProcessor` background service additionally polls the outbox every 10 seconds and
+   re-publishes each event (at-least-once delivery, even if the process crashes between
+   commit and dispatch). Cache-invalidation handlers are idempotent, so the double
+   dispatch is harmless.
 6. Event handlers (`GameCreatedEventHandler`, `GameUpdatedEventHandler`,
    `GameDeletedEventHandler`) invalidate the relevant Redis cache entries. Deleting a
    game also removes its cover image from object storage.

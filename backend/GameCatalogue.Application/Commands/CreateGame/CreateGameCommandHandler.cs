@@ -8,13 +8,13 @@ namespace GameCatalogue.Application.Commands.CreateGame;
 
 /// <summary>
 /// Handles <see cref="CreateGameCommand"/> by creating and persisting a new game
-/// (optionally uploading its cover image) and publishing its domain events.
+/// (optionally uploading its cover image). Domain events are dispatched by the
+/// write context during <c>SaveChanges</c>.
 /// </summary>
 public class CreateGameCommandHandler : IRequestHandler<CreateGameCommand, Guid>
 {
     private readonly IGameWriteRepository _repository;
     private readonly IStorageService _storageService;
-    private readonly IPublisher _publisher;
     private readonly ILogger<CreateGameCommandHandler> _logger;
 
     /// <summary>
@@ -23,12 +23,10 @@ public class CreateGameCommandHandler : IRequestHandler<CreateGameCommand, Guid>
     public CreateGameCommandHandler(
         IGameWriteRepository repository,
         IStorageService storageService,
-        IPublisher publisher,
         ILogger<CreateGameCommandHandler> logger)
     {
         _repository = repository;
         _storageService = storageService;
-        _publisher = publisher;
         _logger = logger;
     }
 
@@ -56,18 +54,9 @@ public class CreateGameCommandHandler : IRequestHandler<CreateGameCommand, Guid>
             _logger.LogInformation("Uploaded cover image {FileKey} for new game {GameId}", fileKey, game.Id);
         }
 
-        // Capture events before saving: WriteDbContext moves them to the outbox
-        // (for at-least-once delivery) and clears them during SaveChanges. We also
-        // publish them in-process right after the commit for read-your-writes
-        // consistency (e.g. immediate cache invalidation).
-        var domainEvents = game.DomainEvents.ToList();
-
+        // The write context persists the raised domain events to the outbox and
+        // dispatches them in-process during SaveChanges.
         await _repository.AddAsync(game, cancellationToken);
-
-        foreach (var domainEvent in domainEvents)
-        {
-            await _publisher.Publish(domainEvent, cancellationToken);
-        }
 
         _logger.LogInformation("Created game {GameId} with title {Title}", game.Id, game.Title);
         return game.Id;

@@ -6,7 +6,6 @@ using GameCatalogue.Domain.Entities;
 using GameCatalogue.Domain.Enums;
 using GameCatalogue.Domain.Events;
 using GameCatalogue.Domain.Interfaces;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -16,11 +15,10 @@ public class DeleteGameCommandHandlerTests
 {
     private readonly Mock<IGameWriteRepository> _repository = new();
     private readonly Mock<IStorageService> _storage = new();
-    private readonly Mock<IPublisher> _publisher = new();
     private readonly Mock<ILogger<DeleteGameCommandHandler>> _logger = new();
 
     private DeleteGameCommandHandler CreateHandler() =>
-        new(_repository.Object, _storage.Object, _publisher.Object, _logger.Object);
+        new(_repository.Object, _storage.Object, _logger.Object);
 
     private static Game NewGame() => Game.Create(
         "Doom", Genre.Action, Platform.PC, new DateOnly(2016, 5, 13), "id Software", 8.7m, 100);
@@ -38,7 +36,7 @@ public class DeleteGameCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenGameExists_ShouldDeleteAndPublishGameDeletedEvent()
+    public async Task Handle_WhenGameExists_ShouldDeleteAndRaiseGameDeletedEvent()
     {
         var game = NewGame();
         game.ClearDomainEvents();
@@ -48,9 +46,8 @@ public class DeleteGameCommandHandlerTests
         await CreateHandler().Handle(new DeleteGameCommand(game.Id), CancellationToken.None);
 
         _repository.Verify(r => r.DeleteAsync(game, It.IsAny<CancellationToken>()), Times.Once);
-        _publisher.Verify(
-            p => p.Publish(It.Is<IDomainEvent>(e => e is GameDeletedEvent), It.IsAny<CancellationToken>()),
-            Times.Once);
+        // The aggregate carries the event; dispatch happens in the write context.
+        game.DomainEvents.Should().ContainSingle(e => e is GameDeletedEvent);
     }
 
     [Fact]
