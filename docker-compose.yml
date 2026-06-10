@@ -1,0 +1,9 @@
+name: gamecatalogue
+
+# Master compose file: brings up infrastructure, backend and frontend together.
+# The API retries its database migration on startup, so explicit startup
+# ordering is not required for correctness.
+include:
+  - docker-compose.infrastructure.yml
+  - docker-compose.backend.yml
+  - docker-compose.frontend.yml

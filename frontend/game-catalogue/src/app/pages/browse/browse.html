@@ -1,0 +1,83 @@
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Browse Games</h2>
+  <button class="btn btn-primary" (click)="add()">+ Add New</button>
+</div>
+
+<div class="row g-2 mb-3">
+  <div class="col-md-3">
+    <select class="form-select" [(ngModel)]="selectedGenre" (change)="applyFilters()">
+      <option [ngValue]="null">All genres</option>
+      <option *ngFor="let g of genres" [ngValue]="g">{{ g }}</option>
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select class="form-select" [(ngModel)]="selectedPlatform" (change)="applyFilters()">
+      <option [ngValue]="null">All platforms</option>
+      <option *ngFor="let p of platforms" [ngValue]="p">{{ p }}</option>
+    </select>
+  </div>
+  <div class="col-md-6">
+    <div class="input-group">
+      <input
+        type="text"
+        class="form-control"
+        placeholder="Search title or developer..."
+        [(ngModel)]="searchTerm"
+        (keyup.enter)="applyFilters()" />
+      <button class="btn btn-outline-secondary" (click)="applyFilters()">Search</button>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+
+<div *ngIf="loading" class="text-center my-4">
+  <div class="spinner-border" role="status"></div>
+</div>
+
+<table class="table table-hover align-middle" *ngIf="!loading">
+  <thead>
+    <tr>
+      <th style="width: 80px;">Cover</th>
+      <th>Title</th>
+      <th>Genre</th>
+      <th>Platform</th>
+      <th>Rating</th>
+      <th class="text-end">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let game of games">
+      <td>
+        <img
+          *ngIf="game.coverImageUrl"
+          [src]="game.coverImageUrl"
+          alt="cover"
+          class="cover-thumb" />
+        <span *ngIf="!game.coverImageUrl" class="text-muted">—</span>
+      </td>
+      <td>{{ game.title }}</td>
+      <td><span class="badge bg-secondary">{{ game.genre }}</span></td>
+      <td>{{ game.platform }}</td>
+      <td>⭐ {{ game.rating | number: '1.1-1' }}</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-primary me-2" (click)="edit(game)">Edit</button>
+        <button class="btn btn-sm btn-outline-danger" (click)="remove(game)">Delete</button>
+      </td>
+    </tr>
+    <tr *ngIf="games.length === 0">
+      <td colspan="6" class="text-center text-muted py-4">No games found.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="d-flex justify-content-center" *ngIf="totalCount > pageSize">
+  <ngb-pagination
+    [collectionSize]="totalCount"
+    [(page)]="page"
+    [pageSize]="pageSize"
+    [maxSize]="5"
+    [rotate]="true"
+    (pageChange)="onPageChange($event)">
+  </ngb-pagination>
+</div>

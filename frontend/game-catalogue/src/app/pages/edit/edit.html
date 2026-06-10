@@ -1,0 +1,61 @@
+<h2 class="mb-4">{{ isEdit ? 'Edit Game' : 'New Game' }}</h2>
+
+<div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+
+<form #form="ngForm" (ngSubmit)="save()" class="row g-3">
+  <div class="col-md-8">
+    <label class="form-label">Title</label>
+    <input type="text" class="form-control" name="title" [(ngModel)]="model.title" required maxlength="200" />
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label">Developer</label>
+    <input type="text" class="form-control" name="developer" [(ngModel)]="model.developer" required maxlength="200" />
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label">Genre</label>
+    <select class="form-select" name="genre" [(ngModel)]="model.genre" required>
+      <option *ngFor="let g of genres" [ngValue]="g">{{ g }}</option>
+    </select>
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label">Platform</label>
+    <select class="form-select" name="platform" [(ngModel)]="model.platform" required>
+      <option *ngFor="let p of platforms" [ngValue]="p">{{ p }}</option>
+    </select>
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label">Release Date</label>
+    <input type="date" class="form-control" name="releaseDate" [(ngModel)]="model.releaseDate" required />
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label">Rating (0–10)</label>
+    <input type="number" class="form-control" name="rating" [(ngModel)]="model.rating"
+           min="0" max="10" step="0.1" required />
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label">Download Count</label>
+    <input type="number" class="form-control" name="downloadCount" [(ngModel)]="model.downloadCount" min="0" required />
+  </div>
+
+  <div class="col-md-8">
+    <label class="form-label">Cover Image</label>
+    <input type="file" class="form-control" accept="image/*" (change)="onFileSelected($event)" />
+  </div>
+
+  <div class="col-12" *ngIf="coverPreview">
+    <img [src]="coverPreview" alt="cover preview" class="cover-preview" />
+  </div>
+
+  <div class="col-12 d-flex gap-2">
+    <button type="submit" class="btn btn-primary" [disabled]="form.invalid || saving">
+      {{ saving ? 'Saving…' : 'Save' }}
+    </button>
+    <button type="button" class="btn btn-outline-secondary" (click)="cancel()">Cancel</button>
+  </div>
+</form>
